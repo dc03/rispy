@@ -1,0 +1,12 @@
+alpha      ::= "[a-zA-Z]"
+digit      ::= "[0-9]"
+letter     ::= alpha | digit | "_"
+operator   ::= "[+-*/%]"
+
+Program    ::= SExpr* EOF
+SExpr      ::= "(" Expr+ ")"
+QExpr      ::= "{" Expr+ "}"
+Number     ::=  digit+
+Symbol     ::= letter (letter | operator | "?")*
+             | operator
+Expr       ::= SExpr | QExpr | Number | Symbol
