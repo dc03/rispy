@@ -19,6 +19,25 @@ pub struct Token<'a> {
     pub ttype: TokenType,
 }
 
+impl<'a> Token<'a> {
+    pub fn from_pos(
+        lexeme: &'a str,
+        pos: usize,
+        line: usize,
+        column: usize,
+        ttype: TokenType,
+    ) -> Self {
+        Token {
+            lexeme: lexeme,
+            byte_start: pos - lexeme.len(),
+            byte_end: pos,
+            line: line,
+            column: column,
+            ttype: ttype,
+        }
+    }
+}
+
 pub enum Expr<'a> {
     SExpr(SExpr<'a>),
     QExpr(QExpr<'a>),
