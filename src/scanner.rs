@@ -2,8 +2,8 @@ use crate::ast::*;
 use crate::error;
 use unicode_segmentation::UnicodeSegmentation;
 
-pub struct Scanner<'a> {
-    filename: String,
+pub struct Scanner<'a, 'b> {
+    filename: &'b str,
     source: &'a String,
     pos: usize,
     line: usize,
@@ -13,14 +13,14 @@ pub struct Scanner<'a> {
     current: usize,
 }
 
-impl<'a> Scanner<'a> {
-    pub fn new(src: &'a String, file: String) -> Scanner<'a> {
+impl<'a, 'b> Scanner<'a, 'b> {
+    pub fn new(src: &'a String, filename: &'b str) -> Self {
         Scanner {
+            filename: filename,
             source: src,
             pos: 0,
             line: 1,
             col: 1,
-            filename: file,
 
             graphemes: src.graphemes(true).collect::<Vec<&str>>(),
             current: 0,
@@ -202,7 +202,7 @@ mod test {
     #[test]
     fn basic() {
         let source = "(+ 1 2 3 4 x-y? _a+b-c)".to_string();
-        let mut scanner = Scanner::new(&source, "test".to_string());
+        let mut scanner = Scanner::new(&source, "test");
 
         assert_eq!(
             scanner.scan_one(),
@@ -308,7 +308,7 @@ mod test {
     #[test]
     fn newline() {
         let source = "(- 1 2\n3\n4)".to_string();
-        let mut scanner = Scanner::new(&source, "test".to_string());
+        let mut scanner = Scanner::new(&source, "test");
 
         assert_eq!(
             scanner.scan_one(),
