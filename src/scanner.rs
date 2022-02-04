@@ -5,9 +5,9 @@ use unicode_segmentation::UnicodeSegmentation;
 pub struct Scanner<'a> {
     filename: String,
     source: &'a String,
-    pub pos: usize,
-    pub line: usize,
-    pub col: usize,
+    pos: usize,
+    line: usize,
+    col: usize,
 
     graphemes: Vec<&'a str>,
     current: usize,
@@ -54,7 +54,7 @@ impl<'a> Scanner<'a> {
         string.len() == 1 && char::is_whitespace(string.chars().nth(0).unwrap())
     }
 
-    pub fn next_grapheme(&mut self) -> Option<&'a str> {
+    fn next_grapheme(&mut self) -> Option<&'a str> {
         if self.current >= self.graphemes.len() {
             None
         } else {
