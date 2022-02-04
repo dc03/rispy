@@ -1,3 +1,5 @@
+const ERROR: &str = "ERROR";
+
 fn print_base(
     msg: String,
     source: &String,
@@ -14,5 +16,10 @@ fn print_base(
 }
 
 pub fn print_error(msg: String, source: &String, line: usize, col: usize, filename: &str) {
-    print_base(msg, source, line, col, filename, "ERROR");
+    print_base(msg, source, line, col, filename, ERROR);
+}
+
+pub fn print_generic_error(msg: String, filename: &str) {
+    println!("[{}]: {}", ERROR, msg);
+    println!(" --> in {}", filename);
 }
