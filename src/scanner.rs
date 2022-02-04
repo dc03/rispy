@@ -1,12 +1,16 @@
 use crate::ast::*;
 use crate::error;
+use unicode_segmentation::UnicodeSegmentation;
 
 pub struct Scanner<'a> {
     filename: String,
     source: &'a String,
-    pos: usize,
-    line: usize,
-    col: usize,
+    pub pos: usize,
+    pub line: usize,
+    pub col: usize,
+
+    graphemes: Vec<&'a str>,
+    current: usize,
 }
 
 impl<'a> Scanner<'a> {
@@ -17,200 +21,175 @@ impl<'a> Scanner<'a> {
             line: 1,
             col: 1,
             filename: file,
+
+            graphemes: src.graphemes(true).collect::<Vec<&str>>(),
+            current: 0,
         }
     }
 
-    fn try_match(&mut self, string: &str) -> bool {
-        if self.source.as_str()[self.pos..].starts_with(string) {
-            self.pos += string.len();
-            if string == "\n" {
+    fn is_alpha(string: &str) -> bool {
+        !Self::is_digit(string)
+            && !Self::is_operator(string)
+            && !Self::is_whitespace(string)
+            && !Self::is_punc(string)
+    }
+
+    fn is_digit(string: &str) -> bool {
+        string.len() == 1 && string.chars().nth(0).unwrap().is_numeric()
+    }
+
+    fn is_operator(string: &str) -> bool {
+        string.len() == 1 && ["+", "-", "*", "/", "%"].contains(&string)
+    }
+
+    fn is_punc(string: &str) -> bool {
+        string == "(" || string == ")" || string == "{" || string == "}"
+    }
+
+    fn is_letter(string: &str) -> bool {
+        Self::is_alpha(string) || Self::is_digit(string)
+    }
+
+    fn is_whitespace(string: &str) -> bool {
+        string.len() == 1 && char::is_whitespace(string.chars().nth(0).unwrap())
+    }
+
+    pub fn next_grapheme(&mut self) -> Option<&'a str> {
+        if self.current >= self.graphemes.len() {
+            None
+        } else {
+            let grapheme = self.graphemes[self.current];
+
+            self.pos += grapheme.len();
+            if grapheme.contains("\n") {
                 self.line += 1;
                 self.col = 1;
             } else {
-                self.col += string.len();
+                self.col += grapheme.chars().count();
+            }
+
+            self.current += 1;
+            Some(self.graphemes[self.current - 1])
+        }
+    }
+
+    fn putback_one(&mut self) -> bool {
+        if self.current == 0 {
+            false
+        } else {
+            self.current -= 1;
+            self.pos -= self.graphemes[self.current].len();
+            self.col -= 1;
+            if self.graphemes[self.current] == "\n" || self.graphemes[self.current] == "\r\n" {
+                self.line -= 1;
+                self.col = 0;
             }
             true
-        } else {
-            false
         }
-    }
-
-    fn try_match_char(&mut self, ch: char) -> bool {
-        if self.source.chars().nth(self.pos) == Some(ch) {
-            self.pos += 1;
-            self.col += 1;
-            if ch == '\n' {
-                self.line += 1;
-                self.col = 1;
-            }
-            true
-        } else {
-            false
-        }
-    }
-
-    fn try_match_from_str(&mut self, string: &str) -> bool {
-        for ch in string.chars() {
-            if self.try_match_char(ch) {
-                return true;
-            }
-        }
-
-        false
-    }
-
-    fn try_match_using<F>(&mut self, f: F) -> bool
-    where
-        F: FnOnce(&char) -> bool,
-    {
-        if f(&self.source.chars().nth(self.pos).unwrap()) {
-            if self.source.chars().nth(self.pos) == Some('\n') {
-                self.line += 1;
-                self.col = 1;
-            }
-            self.col += 1;
-            self.pos += 1;
-
-            true
-        } else {
-            false
-        }
-    }
-
-    fn try_match_alpha(&mut self) -> bool {
-        self.try_match_using(char::is_ascii_alphabetic)
-    }
-
-    fn try_match_digit(&mut self) -> bool {
-        self.try_match_using(char::is_ascii_digit)
-    }
-
-    fn try_match_letter(&mut self) -> bool {
-        self.try_match_alpha() || self.try_match_digit() || self.try_match_char('_')
-    }
-
-    fn try_match_operator(&mut self) -> bool {
-        self.try_match_from_str("+-*/%")
-    }
-
-    fn try_scan_num(&mut self) -> Option<Token<'a>> {
-        let col = self.col;
-        let byte_start = self.pos;
-
-        if self.try_match_digit() {
-            while self.try_match_digit() {}
-
-            let byte_end = self.pos;
-            Some(Token {
-                lexeme: &self.source[byte_start..byte_end],
-                byte_start: byte_start,
-                byte_end: byte_end,
-                line: self.line,
-                column: col,
-                ttype: TokenType::Number,
-            })
-        } else {
-            None
-        }
-    }
-
-    fn try_scan_symbol(&mut self) -> Option<Token<'a>> {
-        let col = self.col;
-        let byte_start = self.pos;
-
-        if self.try_match_letter() {
-            while self.try_match_letter() || self.try_match_operator() || self.try_match_char('?') {
-            }
-
-            let byte_end = self.pos;
-            Some(Token {
-                lexeme: &self.source[byte_start..byte_end],
-                byte_start: byte_start,
-                byte_end: byte_end,
-                line: self.line,
-                column: col,
-                ttype: TokenType::Symbol,
-            })
-        } else if self.try_match_operator() {
-            let byte_end = self.pos;
-            Some(Token {
-                lexeme: &self.source[byte_start..byte_end],
-                byte_start: byte_start,
-                byte_end: byte_end,
-                line: self.line,
-                column: col,
-                ttype: TokenType::Symbol,
-            })
-        } else {
-            None
-        }
-    }
-
-    fn try_scan_punc(&mut self) -> Option<Token<'a>> {
-        let col = self.col;
-        let byte_start = self.pos;
-        if self.try_match_from_str("(){}") {
-            let ch = self.source.chars().nth(self.pos - 1).unwrap();
-
-            let ttype = match ch {
-                '(' => TokenType::ParenOpen,
-                ')' => TokenType::ParenClose,
-                '{' => TokenType::LBraceOpen,
-                '}' => TokenType::LBraceClose,
-                _ => panic!("Unreachable code"),
-            };
-
-            Some(Token {
-                lexeme: &self.source[byte_start..byte_start + 1],
-                byte_start: byte_start,
-                byte_end: byte_start + 1,
-                line: self.line,
-                column: col,
-                ttype: ttype,
-            })
-        } else {
-            None
-        }
-    }
-
-    fn try_match_whitespace(&mut self) -> bool {
-        self.try_match_from_str("\n\r\t ")
     }
 
     pub fn scan_one(&mut self) -> Option<Token<'a>> {
-        if self.pos >= self.source.len() {
-            return None;
-        }
+        let col = self.col;
 
-        let tok = self.try_scan_num();
-        if tok.is_some() {
-            return tok;
-        }
-        let tok = self.try_scan_symbol();
-        if tok.is_some() {
-            return tok;
-        }
-        let tok = self.try_scan_punc();
-        if tok.is_some() {
-            return tok;
-        }
+        let next = self.next_grapheme();
 
-        if self.try_match_whitespace() {
-            while self.try_match_whitespace() {}
-            return self.scan_one();
-        }
+        if let Some(next) = next {
+            // println!("DBG: {:?}", next);
+            match next {
+                _ if Self::is_whitespace(next) => self.scan_one(),
+                "(" => Some(Token::from_pos(
+                    next,
+                    self.pos,
+                    self.line,
+                    col,
+                    TokenType::ParenOpen,
+                )),
+                ")" => Some(Token::from_pos(
+                    next,
+                    self.pos,
+                    self.line,
+                    col,
+                    TokenType::ParenClose,
+                )),
+                "{" => Some(Token::from_pos(
+                    next,
+                    self.pos,
+                    self.line,
+                    col,
+                    TokenType::LBraceOpen,
+                )),
+                "}" => Some(Token::from_pos(
+                    next,
+                    self.pos,
+                    self.line,
+                    col,
+                    TokenType::LBraceClose,
+                )),
+                s if Self::is_operator(s) => Some(Token::from_pos(
+                    &self.source.as_str()[self.pos - 1..self.pos],
+                    self.pos,
+                    self.line,
+                    self.col - 1,
+                    TokenType::Symbol,
+                )),
+                s if Self::is_digit(s) => {
+                    let col = self.col - 1;
+                    let mut lex_len = s.len();
 
-        error::print_error(
-            format!(
-                "Unknown character for start of token: `{}`",
-                self.source.chars().nth(self.pos).unwrap()
-            ),
-            self.source,
-            self.line,
-            self.col,
-            &self.filename,
-        );
-        None
+                    while let Some(next) = self.next_grapheme() {
+                        if Self::is_digit(next) {
+                            lex_len += next.len();
+                        } else {
+                            if !self.putback_one() {
+                                panic!("putback_one() failed");
+                            }
+                            break;
+                        }
+                    }
+
+                    Some(Token::from_pos(
+                        &self.source.as_str()[self.pos - lex_len..self.pos],
+                        self.pos,
+                        self.line,
+                        col,
+                        TokenType::Number,
+                    ))
+                }
+                s if Self::is_letter(s) => {
+                    let col = self.col - 1;
+                    let mut lex_len = s.len();
+
+                    while let Some(next) = self.next_grapheme() {
+                        if Self::is_letter(next) || Self::is_operator(next) {
+                            lex_len += next.len();
+                        } else {
+                            if !self.putback_one() {
+                                panic!("putback_one() failed");
+                            }
+                            break;
+                        }
+                    }
+
+                    Some(Token::from_pos(
+                        &self.source.as_str()[self.pos - lex_len..self.pos],
+                        self.pos,
+                        self.line,
+                        col,
+                        TokenType::Symbol,
+                    ))
+                }
+                s => Some(Token {
+                    lexeme: "",
+                    byte_start: 0,
+                    byte_end: 1,
+                    line: 1,
+                    column: 1,
+                    ttype: TokenType::Symbol,
+                }),
+            }
+        } else {
+            None
+        }
     }
 }
 
