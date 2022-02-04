@@ -1,4 +1,4 @@
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum TokenType {
     ParenOpen,
     ParenClose,
@@ -9,7 +9,7 @@ pub enum TokenType {
     Symbol,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub struct Token<'a> {
     pub lexeme: &'a str,
     pub byte_start: usize,
@@ -38,28 +38,35 @@ impl<'a> Token<'a> {
     }
 }
 
+#[derive(Debug, PartialEq)]
 pub enum Expr<'a> {
     SExpr(SExpr<'a>),
     QExpr(QExpr<'a>),
     Num(Number<'a>),
-    Oper(Symbol<'a>),
+    Sym(Symbol<'a>),
 }
 
+#[derive(Debug, PartialEq)]
 pub struct SExpr<'a> {
     pub func: Box<Expr<'a>>,
     pub args: Vec<Box<Expr<'a>>>,
+    pub tok: Token<'a>,
 }
 
+#[derive(Debug, PartialEq)]
 pub struct QExpr<'a> {
     pub func: Box<Expr<'a>>,
     pub args: Vec<Box<Expr<'a>>>,
+    pub tok: Token<'a>,
 }
 
+#[derive(Debug, PartialEq)]
 pub struct Number<'a> {
     pub tok: Token<'a>,
     pub val: isize,
 }
 
+#[derive(Debug, PartialEq)]
 pub struct Symbol<'a> {
     pub tok: Token<'a>,
 }
