@@ -6,7 +6,7 @@ operator   ::= "[+-*/%]"
 Program    ::= SExpr* EOF
 SExpr      ::= "(" Expr+ ")"
 QExpr      ::= "{" Expr+ "}"
-Number     ::=  digit+
+Number     ::= digit+
 Symbol     ::= letter (letter | operator | "?")*
              | operator
 Expr       ::= SExpr | QExpr | Number | Symbol
