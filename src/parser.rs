@@ -1,13 +1,13 @@
 use crate::{ast::*, error::*};
 
-struct Parser<'a, 'b> {
+pub struct Parser<'a, 'b> {
     toks: Vec<Token<'a>>,
     source: &'a String,
     filename: &'b str,
     current: usize,
 }
 
-type ExprNode<'a> = Option<Box<Expr<'a>>>;
+pub type ExprNode<'a> = Option<Box<Expr<'a>>>;
 
 impl<'a, 'b> Parser<'a, 'b> {
     pub fn new(toks: Vec<Token<'a>>, source: &'a String, filename: &'b str) -> Self {
