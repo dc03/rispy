@@ -1,9 +1,8 @@
 use crate::ast::*;
-use crate::error;
 use unicode_segmentation::UnicodeSegmentation;
 
 pub struct Scanner<'a, 'b> {
-    filename: &'b str,
+    _filename: &'b str,
     source: &'a String,
     pos: usize,
     line: usize,
@@ -16,7 +15,7 @@ pub struct Scanner<'a, 'b> {
 impl<'a, 'b> Scanner<'a, 'b> {
     pub fn new(src: &'a String, filename: &'b str) -> Self {
         Scanner {
-            filename: filename,
+            _filename: filename,
             source: src,
             pos: 0,
             line: 1,
@@ -178,7 +177,7 @@ impl<'a, 'b> Scanner<'a, 'b> {
                         TokenType::Symbol,
                     ))
                 }
-                s => Some(Token {
+                _ => Some(Token {
                     lexeme: "",
                     byte_start: 0,
                     byte_end: 1,
