@@ -23,3 +23,7 @@ pub fn print_generic_error(msg: String, filename: &str) {
     println!("[{}]: {}", ERROR, msg);
     println!(" --> in {}", filename);
 }
+
+pub fn runtime_error(msg: String) {
+    println!("[RUNTIME ERROR]: {}", msg);
+}
